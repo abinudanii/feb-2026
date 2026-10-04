@@ -1,0 +1,52 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>FEB 2026 — Admin</title>
+<style>
+:root{--fg:#0b2e1a;--g:#0b7d3a;--line:rgba(11,46,26,.18);--mint:#e4f4ea}
+*{box-sizing:border-box}body{margin:0;font:500 16px/1.5 system-ui,Segoe UI,Roboto,sans-serif;color:var(--fg);background:#fff}
+.w{max-width:1200px;margin:0 auto;padding:20px}h1{font-size:22px;margin:0 0 4px;letter-spacing:.04em}
+button,select,input{font:inherit;color:inherit;min-height:44px;border:1px solid var(--line);background:#fff;padding:0 14px}
+button{background:var(--g);color:#fff;border-color:var(--g);cursor:pointer;font-weight:600}button.g{background:#fff;color:var(--g)}
+:focus-visible{outline:2px solid var(--g);outline-offset:2px}
+.bar{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}.bar input{flex:1;min-width:180px}
+.st{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}.st div{background:var(--mint);padding:10px 16px}.st b{font-size:22px;display:block}
+.t{overflow-x:auto;border:1px solid var(--line)}table{border-collapse:collapse;width:100%;min-width:900px;font-size:14px}
+th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{background:var(--mint);position:sticky;top:0}
+td.l{min-width:240px;max-width:360px;white-space:pre-wrap}.err{color:#c0392b;min-height:22px}
+#login{max-width:380px;margin:12vh auto}#login input{width:100%;margin:12px 0}
+</style></head><body><div class="w">
+<div id="login"><h1>FEB 2026 Admin</h1><p>Enter the admin passcode.</p>
+<input id="key" type="password" aria-label="Passcode" autocomplete="current-password"><button id="go" style="width:100%">Open list</button><div class="err" id="e"></div></div>
+<div id="app" hidden><p id="demo" hidden style="background:#fff3cd;padding:10px 14px;margin:0 0 14px">Preview with sample data. Nothing here is real. Connect your Apps Script link to see real registrations.</p><h1>FEB 2026 · Registrations</h1><div class="st" id="st"></div>
+<div class="bar"><input id="q" type="search" placeholder="Search name, email, grade, answers" aria-label="Search">
+<select id="f" aria-label="Filter by status"><option value="">All statuses</option><option>Pending</option><option>In</option><option>Not in</option></select>
+<button class="g" id="rf">Refresh</button><button id="dl">Download spreadsheet</button></div>
+<div class="err" id="e2" role="alert"></div><div class="t"><table><thead id="th"></thead><tbody id="tb"></tbody></table></div></div>
+<script>
+const SCRIPT_URL="PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
+const $=s=>document.querySelector(s);let KEY="",HEAD=[],ROWS=[];
+const DEMO=SCRIPT_URL.startsWith("PASTE");
+const H=["Submitted","Full name","Grade","Email","Phone","Why interested","Area","Question for banker","Source","Status"];
+const SAMPLE=[["2026-10-04T09:12","Sample Student A","Grade 11","a@example.com","0911 000 001","I want to understand how banks make money before choosing a university major.","Banking","How did you decide to go into corporate banking?","qr","Pending"],["2026-10-04T10:40","Sample Student B","Grade 10","b@example.com","0911 000 002","Curious about investing and how markets work.","Investing","What does a normal day look like for you?","qr","In"],["2026-10-05T08:05","Sample Student C","Grade 12","c@example.com","0911 000 003","Thinking about studying economics.","Economics","Which skills matter most for a first job?","qr","Not in"]];
+const demo=b=>b.key!=="feb2026ADMIN"?{ok:false,error:"Wrong passcode"}:b.action=="list"?{ok:true,head:H,rows:SAMPLE.map(r=>[...r])}:{ok:true};
+const call=async b=>{if(DEMO)return demo({key:KEY,...b});const r=await fetch(SCRIPT_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({key:KEY,...b})});return r.json()};
+async function load(){$("#e2").textContent="";try{const d=await call({action:"list"});
+ if(!d.ok){$("#e").textContent=d.error||"Could not load.";return false}
+ HEAD=d.head;ROWS=d.rows.map((r,i)=>({r,row:i+2}));return true}catch(x){$("#e").textContent=$("#e2").textContent="Could not reach the server. Check SCRIPT_URL and your connection.";return false}}
+function draw(){const q=$("#q").value.toLowerCase(),f=$("#f").value,si=HEAD.length-1;
+ const c=k=>ROWS.filter(x=>(x.r[si]||"Pending")==k).length;
+ $("#st").innerHTML=`<div><b>${ROWS.length}</b>Total</div><div><b>${c("In")}</b>In</div><div><b>${c("Pending")}</b>Pending</div><div><b>${c("Not in")}</b>Not in</div>`;
+ $("#th").innerHTML="<tr>"+HEAD.map(h=>`<th>${h}</th>`).join("")+"</tr>";
+ const tb=$("#tb");tb.innerHTML="";
+ ROWS.filter(x=>(!f||(x.r[si]||"Pending")==f)&&(!q||x.r.join(" ").toLowerCase().includes(q))).forEach(x=>{
+  const tr=document.createElement("tr");
+  x.r.forEach((v,i)=>{const td=document.createElement("td");
+   if(i==si){const s=document.createElement("select");s.setAttribute("aria-label","Status for "+x.r[1]);["Pending","In","Not in"].forEach(o=>s.add(new Option(o,o)));s.value=v||"Pending";
+    s.onchange=async()=>{const old=x.r[si];x.r[si]=s.value;try{const d=await call({action:"status",row:x.row,status:s.value});if(!d.ok)throw 0;draw()}catch(e){x.r[si]=old;s.value=old;$("#e2").textContent="Status was not saved. Try again."}};td.appendChild(s)}
+   else{td.textContent=i==0&&v?String(v).slice(0,10):v;if(i==5||i==7)td.className="l"}tr.appendChild(td)});tb.appendChild(tr)})}
+async function open(){if(await load()){$("#login").hidden=true;$("#app").hidden=false;$("#demo").hidden=!DEMO;draw()}}
+$("#go").onclick=()=>{KEY=$("#key").value;open()};$("#key").onkeydown=e=>{if(e.key=="Enter")$("#go").click()};
+$("#rf").onclick=async()=>{if(await load())draw()};$("#q").oninput=$("#f").onchange=draw;
+$("#dl").onclick=()=>{const esc=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
+ const csv="\ufeff"+[HEAD,...ROWS.map(x=>x.r)].map(r=>r.map(esc).join(",")).join("\r\n");
+ const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="feb-2026-registrations.csv";a.click()};
+</script></div></body></html>
